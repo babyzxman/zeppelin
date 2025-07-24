@@ -1,0 +1,5 @@
+*.js text eol=lf
+/base_package/zeppelin/spark/jars/*.jar filter=lfs diff=lfs merge=lfs -text
+/base_package/on-cloud/zeppelin/spark/jars/*.jar filter=lfs diff=lfs merge=lfs -text
+/base_package/lib-extra/*.jar filter=lfs diff=lfs merge=lfs -text
+/base_package/external-lib/*.jar filter=lfs diff=lfs merge=lfs -text
