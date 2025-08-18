@@ -395,6 +395,87 @@ class SparkInterpreterTest {
   }
 
   @Test
+  void testResourcePoolObjectExchange() throws InterpreterException {
+    Properties properties = new Properties();
+    properties.setProperty(SparkStringConstants.MASTER_PROP_NAME, "local");
+    properties.setProperty(SparkStringConstants.APP_NAME_PROP_NAME, "test");
+    properties.setProperty("zeppelin.spark.maxResult", "100");
+    properties.setProperty("zeppelin.spark.scala.color", "false");
+    properties.setProperty("zeppelin.spark.deprecatedMsg.show", "false");
+
+    InterpreterContext.set(getInterpreterContext());
+    interpreter = new SparkInterpreter(properties);
+    interpreter.setInterpreterGroup(mock(InterpreterGroup.class));
+    interpreter.open();
+
+    InterpreterContext ctx = getInterpreterContext();
+    ctx.getResourcePool().put(ctx.getNoteId(), ctx.getParagraphId(), "userObj", new User("42", "Alice"));
+    InterpreterResult res = interpreter.interpret("print(userObj.getName())", ctx);
+    assertEquals(InterpreterResult.Code.SUCCESS, res.code());
+    assertEquals("Alice", output);
+  }
+
+  @Test
+  void testResourceUpdatedOnlyWhenReinjected() throws InterpreterException {
+    Properties properties = new Properties();
+    properties.setProperty(SparkStringConstants.MASTER_PROP_NAME, "local");
+    properties.setProperty(SparkStringConstants.APP_NAME_PROP_NAME, "test");
+    properties.setProperty("zeppelin.spark.maxResult", "100");
+    properties.setProperty("zeppelin.spark.scala.color", "false");
+    properties.setProperty("zeppelin.spark.deprecatedMsg.show", "false");
+
+    InterpreterContext.set(getInterpreterContext());
+    interpreter = new SparkInterpreter(properties);
+    interpreter.setInterpreterGroup(mock(InterpreterGroup.class));
+    interpreter.open();
+
+    InterpreterContext ctx = getInterpreterContext();
+    User user = new User("42", "Alice");
+    ctx.getResourcePool().put(ctx.getNoteId(), ctx.getParagraphId(), "userObj", user);
+    InterpreterResult res = interpreter.interpret("print(userObj.getName())", ctx);
+    assertEquals(InterpreterResult.Code.SUCCESS, res.code());
+    assertEquals("Alice", output);
+
+    user.setName("Bob");
+    res = interpreter.interpret("print(userObj.getName())", ctx);
+    assertEquals(InterpreterResult.Code.SUCCESS, res.code());
+    assertEquals("Alice", output);
+
+    ctx.getResourcePool().put(ctx.getNoteId(), ctx.getParagraphId(), "userObj", user);
+    res = interpreter.interpret("print(userObj.getName())", ctx);
+    assertEquals(InterpreterResult.Code.SUCCESS, res.code());
+    assertEquals("Bob", output);
+  }
+
+  @Test
+  void testBroadcastResourceBinding() throws InterpreterException {
+    Properties properties = new Properties();
+    properties.setProperty(SparkStringConstants.MASTER_PROP_NAME, "local");
+    properties.setProperty(SparkStringConstants.APP_NAME_PROP_NAME, "test");
+    properties.setProperty("zeppelin.spark.maxResult", "100");
+    properties.setProperty("zeppelin.spark.scala.color", "false");
+    properties.setProperty("zeppelin.spark.deprecatedMsg.show", "false");
+
+    InterpreterGroup group = new InterpreterGroup();
+    group.setResourcePool(new org.apache.zeppelin.resource.LocalResourcePool("pool1"));
+
+    InterpreterContext.set(getInterpreterContext());
+    interpreter = new SparkInterpreter(properties);
+    interpreter.setInterpreterGroup(group);
+    interpreter.open();
+
+    group.getResourcePool().put("userObj", new User("42", "Alice"));
+    InterpreterResult res = interpreter.interpret("print(userObj.getName())", getInterpreterContext());
+    assertEquals(InterpreterResult.Code.SUCCESS, res.code());
+    assertEquals("Alice", output);
+
+    group.getResourcePool().put("userObj", new User("7", "Bob"));
+    res = interpreter.interpret("print(userObj.getName())", getInterpreterContext());
+    assertEquals(InterpreterResult.Code.SUCCESS, res.code());
+    assertEquals("Bob", output);
+  }
+
+  @Test
   void testDisableReplOutput() throws InterpreterException {
     Properties properties = new Properties();
     properties.setProperty(SparkStringConstants.MASTER_PROP_NAME, "local");

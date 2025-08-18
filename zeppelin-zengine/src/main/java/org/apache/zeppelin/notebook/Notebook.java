@@ -88,6 +88,7 @@ public class Notebook {
   private Credentials credentials;
   private final List<Consumer<String>> initConsumers;
   private ExecutorService initExecutor;
+  private ResourceBroadcastService resourceBroadcastService;
 
   /**
    * Main constructor \w manual Dependency Injection
@@ -115,12 +116,22 @@ public class Notebook {
     this.credentials = credentials;
     addNotebookEventListener(this.interpreterSettingManager);
     initConsumers = new LinkedList<>();
+    resourceBroadcastService = new ResourceBroadcastService(this.interpreterSettingManager);
   }
 
   public void recoveryIfNecessary() {
     if (conf.isRecoveryEnabled()) {
       recoverRunningParagraphs();
     }
+  }
+
+  /**
+   * Broadcast a named resource to all running interpreters.
+   * The resource will be pushed by a background thread and
+   * made available via each interpreter group's ResourcePool.
+   */
+  public void broadcastResource(String name, Object value) {
+    resourceBroadcastService.updateResource(name, value);
   }
 
   /**

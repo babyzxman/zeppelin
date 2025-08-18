@@ -551,6 +551,38 @@ See [Zeppelin-Context](../usage/other_features/zeppelin_context.html) for more d
 <img src="{{BASE_PATH}}/assets/themes/zeppelin/img/docs-img/spark_zshow.png">
 
 
+### Object Exchange via ResourcePool
+
+You can transmit arbitrary Java objects from the server to the Spark interpreter
+by placing them in the interpreter's `ResourcePool` before a paragraph is
+executed.  The object is serialized along with the paragraph's
+`InterpreterContext` and can be retrieved inside the interpreter through the
+`ZeppelinContext` (`z`).
+
+#### Server side (Java)
+
+```java
+User user = new User("42", "Alice");
+
+InterpreterContext ctx = new InterpreterContextBuilder()
+    .setNoteId(noteId)
+    .setParagraphId(paragraphId)
+    .build();
+ctx.getResourcePool().put("userObj", user);
+
+remoteInterpreter.interpret(
+    "val user = z.get(\"userObj\").asInstanceOf[User]\nprintln(user.name)",
+    ctx);
+```
+
+#### Spark paragraph (Scala)
+
+```scala
+val user = z.get("userObj").asInstanceOf[User]
+println(s"Hello, ${user.name}")
+```
+
+
 ## Setting up Zeppelin with Kerberos
 
 Logical setup with Zeppelin, Kerberos Key Distribution Center (KDC), and Spark on YARN:

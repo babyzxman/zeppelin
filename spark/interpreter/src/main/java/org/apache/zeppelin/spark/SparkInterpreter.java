@@ -37,6 +37,11 @@ import org.apache.zeppelin.interpreter.InterpreterException;
 import org.apache.zeppelin.interpreter.InterpreterGroup;
 import org.apache.zeppelin.interpreter.InterpreterResult;
 import org.apache.zeppelin.interpreter.thrift.InterpreterCompletion;
+import org.apache.zeppelin.resource.Resource;
+import org.apache.zeppelin.resource.ResourcePool;
+import org.apache.zeppelin.resource.ResourceSet;
+import org.apache.zeppelin.resource.LocalResourcePool;
+import org.apache.zeppelin.resource.ResourcePoolListener;
 import org.apache.zeppelin.spark.bde.services.license.HealthStatusCronRunnable;
 import org.apache.zeppelin.spark.bde.services.license.HealthStatusRunnable;
 import org.apache.zeppelin.spark.bde.services.runnable.StopSparkRunnable;
@@ -95,6 +100,7 @@ public class SparkInterpreter extends AbstractInterpreter {
   private String scalaVersion;
   private boolean enableSupportedVersionCheck;
   private long scStartTime;
+  private final Map<String, Object> boundResources = new HashMap<>();
 
   public SparkInterpreter(Properties properties) {
 
@@ -209,6 +215,20 @@ public class SparkInterpreter extends AbstractInterpreter {
       }
 
       SESSION_NUM.incrementAndGet();
+
+      ResourcePool pool = getInterpreterGroup().getResourcePool();
+      if (pool instanceof LocalResourcePool) {
+        ((LocalResourcePool) pool).addListener(
+            new ResourcePoolListener() {
+              @Override
+              public void onResourceUpdated(String noteId, String paragraphId, String name, Object value) {
+                if (value != null && boundResources.get(name) != value) {
+                  innerInterpreter.bind(name, value.getClass().getName(), value, Collections.emptyList());
+                  boundResources.put(name, value);
+                }
+              }
+            });
+      }
     }catch (Exception e) {
       LOGGER.error("Fail to open SparkInterpreter", e);
       throw new InterpreterException("Fail to open SparkInterpreter", e);
@@ -339,6 +359,25 @@ public class SparkInterpreter extends AbstractInterpreter {
     sc.setLocalProperty("heraUrl", heraUrl);
     sc.setLocalProperty("refKey", zConf.getString(ConfVars.ZEPPELIN_APP_MODULE_REF_KEY));
     sc.setLocalProperty("tenantId", zConf.getString(ZeppelinConfiguration.ConfVars.ZEPPELIN_APP_TENANT_ID));
+    ResourcePool resourcePool = context.getResourcePool();
+    if (resourcePool != null) {
+      // Bind every server-side resource into the Scala REPL so that a value
+      // inserted via InterpreterContext#getResourcePool().put(...) becomes
+      // directly accessible as a variable in user code. For example, storing a
+      // `User` object under the key "userObj" lets Scala paragraphs reference
+      // it simply as `userObj`.
+      ResourceSet resources = resourcePool.getAll()
+              .filterByNoteId(context.getNoteId())
+              .filterByParagraphId(context.getParagraphId());
+      for (Resource r : resources) {
+        Object value = r.get();
+        String name = r.getResourceId().getName();
+        if (value != null && boundResources.get(name) != value) {
+          innerInterpreter.bind(name, r.getClassName(), value, Collections.emptyList());
+          boundResources.put(name, value);
+        }
+      }
+    }
     return innerInterpreter.interpret(st, context);
   }
 

@@ -127,6 +127,15 @@ public class SparkSqlInterpreterTest {
 
   }
 
+  @Test
+  void testResourcePoolObjectExchange() throws InterpreterException {
+    InterpreterContext ctx = getInterpreterContext();
+    ctx.getResourcePool().put(ctx.getNoteId(), ctx.getParagraphId(), "userObj", new User("42", "Alice"));
+    InterpreterResult res = sparkInterpreter.interpret("print(userObj.getName())", ctx);
+    assertEquals(InterpreterResult.Code.SUCCESS, res.code());
+    assertEquals("Alice", ctx.out.toInterpreterResultMessage().get(0).getData());
+  }
+
   public void test_null_value_in_row() throws InterpreterException {
     sparkInterpreter.interpret("import org.apache.spark.sql._", context);
     sparkInterpreter.interpret(
