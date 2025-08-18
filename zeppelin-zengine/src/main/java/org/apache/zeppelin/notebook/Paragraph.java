@@ -95,6 +95,7 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
   // personalized
   private transient Map<String, Paragraph> userParagraphMap = new HashMap<>();
   private transient Map<String, String> localProperties = new HashMap<>();
+  private transient Map<String, Object> injectedResource = new HashMap<>();
 
   private Map<String, ParagraphRuntimeInfo> runtimeInfos = new HashMap<>();
   private transient List<InterpreterResultMessage> outputBuffer = new ArrayList<>();
@@ -241,6 +242,10 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
 
   public Map<String, String> getLocalProperties() {
     return localProperties;
+  }
+
+  public void addResource(String name, Object value) {
+    injectedResource.put(name, value);
   }
 
   public boolean isEnabled() {
@@ -544,6 +549,16 @@ public class Paragraph extends JobWithProgressPoller<InterpreterResult> implemen
       InterpreterSetting interpreterSetting = ((ManagedInterpreterGroup)
               interpreter.getInterpreterGroup()).getInterpreterSetting();
       replName = interpreterSetting.getName();
+    }
+
+    if (resourcePool != null && !injectedResource.isEmpty()) {
+      String noteId = note.getId();
+      String paragraphId = getId();
+      injectedResource.forEach((name, value) -> {
+        resourcePool.put(noteId, paragraphId, name, value);
+        resourcePool.put(name, value);
+      });
+      injectedResource.clear();
     }
 
     Credentials credentials = note.getCredentials();

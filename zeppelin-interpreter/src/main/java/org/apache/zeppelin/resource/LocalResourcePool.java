@@ -19,6 +19,8 @@ package org.apache.zeppelin.resource;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * ResourcePool
@@ -27,12 +29,23 @@ public class LocalResourcePool implements ResourcePool {
   private final String resourcePoolId;
   private final Map<ResourceId, Resource> resources = Collections.synchronizedMap(
       new HashMap<ResourceId, Resource>());
+  private final List<ResourcePoolListener> listeners = new CopyOnWriteArrayList<>();
 
   /**
    * @param id unique id
    */
   public LocalResourcePool(String id) {
     resourcePoolId = id;
+  }
+
+  public void addListener(ResourcePoolListener listener) {
+    listeners.add(listener);
+  }
+
+  private void notifyListeners(String noteId, String paragraphId, String name, Object value) {
+    for (ResourcePoolListener l : listeners) {
+      l.onResourceUpdated(noteId, paragraphId, name, value);
+    }
   }
 
   /**
@@ -79,6 +92,7 @@ public class LocalResourcePool implements ResourcePool {
 
     Resource resource = new Resource(this, resourceId, object);
     resources.put(resourceId, resource);
+    notifyListeners(null, null, name, object);
   }
 
   @Override
@@ -87,6 +101,7 @@ public class LocalResourcePool implements ResourcePool {
 
     Resource resource = new Resource(this, resourceId, object);
     resources.put(resourceId, resource);
+    notifyListeners(noteId, paragraphId, name, object);
   }
 
   @Override
