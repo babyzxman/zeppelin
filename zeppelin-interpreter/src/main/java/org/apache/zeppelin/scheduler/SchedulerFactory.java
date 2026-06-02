@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -79,16 +80,30 @@ public class SchedulerFactory {
 
   public Scheduler createOrGetFIFOScheduler(String name) {
     synchronized (schedulers) {
+      if (schedulers.containsKey(name) && schedulers.get(name).isTerminated()) {
+        LOGGER.info("Scheduler {} is terminated, remove it first", name);
+        removeScheduler(name);
+      }
       if (!schedulers.containsKey(name)) {
-        LOGGER.info("Create FIFOScheduler: {}", name);
+        LOGGER.info("Create FIFOScheduler: {}. Total scheduler size: {}", name, schedulers.size());
         FIFOScheduler s = new FIFOScheduler(name);
         try {
           executor.execute(s);
           schedulers.put(name, s);
-        } catch (Exception e) {
+        } catch (Throwable e) {
+          s.stop();
+          String executorInfo = executor.toString();
+          if (executor instanceof ThreadPoolExecutor) {
+            ThreadPoolExecutor tpe = (ThreadPoolExecutor) executor;
+            executorInfo = String.format("PoolSize: %d, Active: %d, Max: %d, Completed: %d",
+                    tpe.getPoolSize(), tpe.getActiveCount(), tpe.getMaximumPoolSize(), tpe.getCompletedTaskCount());
+          }
+          LOGGER.warn("Fail to create FIFOScheduler {}. Registered schedulers: {}. Executor: {}",
+                  name, schedulers.size(), executorInfo, e);
           throw new RuntimeException(String.format("Fail to create FIFOScheduler %s, " +
                   "it is likely that the scheduler thread pool is full. " +
-                  "You can increase zeppelin.scheduler.threadpool.size.", name), e);
+                  "Registered: %d. %s. You can increase zeppelin.scheduler.threadpool.size.",
+                  name, schedulers.size(), executorInfo), e);
         }
       }
       return schedulers.get(name);
@@ -97,16 +112,31 @@ public class SchedulerFactory {
 
   public Scheduler createOrGetParallelScheduler(String name, int maxConcurrency) {
     synchronized (schedulers) {
+      if (schedulers.containsKey(name) && schedulers.get(name).isTerminated()) {
+        LOGGER.info("Scheduler {} is terminated, remove it first", name);
+        removeScheduler(name);
+      }
       if (!schedulers.containsKey(name)) {
-        LOGGER.info("Create ParallelScheduler: {} with maxConcurrency: {}", name, maxConcurrency);
+        LOGGER.info("Create ParallelScheduler: {} with maxConcurrency: {}. Total scheduler size: {}",
+                name, maxConcurrency, schedulers.size());
         ParallelScheduler s = new ParallelScheduler(name, maxConcurrency);
         try {
           executor.execute(s);
           schedulers.put(name, s);
-        } catch (Exception e) {
+        } catch (Throwable e) {
+          s.stop();
+          String executorInfo = executor.toString();
+          if (executor instanceof ThreadPoolExecutor) {
+            ThreadPoolExecutor tpe = (ThreadPoolExecutor) executor;
+            executorInfo = String.format("PoolSize: %d, Active: %d, Max: %d, Completed: %d",
+                    tpe.getPoolSize(), tpe.getActiveCount(), tpe.getMaximumPoolSize(), tpe.getCompletedTaskCount());
+          }
+          LOGGER.warn("Fail to create ParallelScheduler {}. Registered schedulers: {}. Executor: {}",
+                  name, schedulers.size(), executorInfo, e);
           throw new RuntimeException(String.format("Fail to create ParallelScheduler %s, " +
                   "it is likely that the scheduler thread pool is full. " +
-                  "You can increase zeppelin.scheduler.threadpool.size.", name), e);
+                  "Registered: %d. %s. You can increase zeppelin.scheduler.threadpool.size.",
+                  name, schedulers.size(), executorInfo), e);
         }
       }
       return schedulers.get(name);
@@ -115,16 +145,30 @@ public class SchedulerFactory {
 
 
   public Scheduler createOrGetScheduler(Scheduler scheduler) {
-    LOGGER.debug("Total Scheduler size: " + schedulers.size());
     synchronized (schedulers) {
+      if (schedulers.containsKey(scheduler.getName()) && schedulers.get(scheduler.getName()).isTerminated()) {
+        LOGGER.info("Scheduler {} is terminated, remove it first", scheduler.getName());
+        removeScheduler(scheduler.getName());
+      }
       if (!schedulers.containsKey(scheduler.getName())) {
+        LOGGER.info("Create Scheduler: {}. Total scheduler size: {}", scheduler.getName(), schedulers.size());
         try {
           executor.execute(scheduler);
           schedulers.put(scheduler.getName(), scheduler);
-        } catch (Exception e) {
+        } catch (Throwable e) {
+          scheduler.stop();
+          String executorInfo = executor.toString();
+          if (executor instanceof ThreadPoolExecutor) {
+            ThreadPoolExecutor tpe = (ThreadPoolExecutor) executor;
+            executorInfo = String.format("PoolSize: %d, Active: %d, Max: %d, Completed: %d",
+                    tpe.getPoolSize(), tpe.getActiveCount(), tpe.getMaximumPoolSize(), tpe.getCompletedTaskCount());
+          }
+          LOGGER.warn("Fail to create Scheduler {}. Registered schedulers: {}. Executor: {}",
+                  scheduler.getName(), schedulers.size(), executorInfo, e);
           throw new RuntimeException(String.format("Fail to create Scheduler %s, " +
                   "it is likely that the scheduler thread pool is full. " +
-                  "You can increase zeppelin.scheduler.threadpool.size.", scheduler.getName()), e);
+                  "Registered: %d. %s. You can increase zeppelin.scheduler.threadpool.size.",
+                  scheduler.getName(), schedulers.size(), executorInfo), e);
         }
       }
       return schedulers.get(scheduler.getName());
