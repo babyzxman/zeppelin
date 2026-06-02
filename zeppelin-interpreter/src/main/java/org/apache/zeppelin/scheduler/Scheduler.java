@@ -43,4 +43,6 @@ public interface Scheduler extends Runnable {
 
   void stop(int stopTimeoutVal, TimeUnit stopTimeoutUnit);
 
+  boolean isTerminated();
+
 }

@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -83,20 +84,31 @@ public abstract class AbstractScheduler implements Scheduler {
   @Override
   public void run() {
     schedulerThread = Thread.currentThread();
-    while (!terminate && !schedulerThread.isInterrupted()) {
-      Job<?> runningJob = null;
-      try {
-        runningJob = queue.take();
-      } catch (InterruptedException e) {
-        LOGGER.warn("{} is interrupted", getClass().getSimpleName());
-        // Restore interrupted state...
-        Thread.currentThread().interrupt();
-        break;
-      }
+    try {
+      while (!terminate && !schedulerThread.isInterrupted()) {
+        Job<?> runningJob = null;
+        try {
+          runningJob = queue.take();
+        } catch (InterruptedException e) {
+          LOGGER.warn("{} is interrupted", getClass().getSimpleName());
+          // Restore interrupted state...
+          Thread.currentThread().interrupt();
+          break;
+        }
 
-      runJobInScheduler(runningJob);
+        try {
+          runJobInScheduler(runningJob);
+        } catch (Throwable e) {
+          LOGGER.error("Unexpected error in scheduler loop", e);
+          if (runningJob != null) {
+            runningJob.setStatus(Job.Status.ERROR);
+            runningJob.setErrorMessage("Unexpected error in scheduler: " + e.getMessage());
+          }
+        }
+      }
+    } finally {
+      stop();
     }
-    stop();
   }
 
   public abstract void runJobInScheduler(Job<?> job);
@@ -104,13 +116,27 @@ public abstract class AbstractScheduler implements Scheduler {
   @Override
   public void stop() {
     terminate = true;
-    for (Job<?> job : queue) {
-      job.aborted = true;
-      job.jobAbort();
+    for (Job<?> job : jobs.values()) {
+      if (!job.isTerminated()) {
+        job.setStatus(Job.Status.ABORT);
+        job.abort();
+      }
     }
+    queue.clear();
+    jobs.clear();
     if (schedulerThread != null) {
       schedulerThread.interrupt();
     }
+  }
+
+  @Override
+  public void stop(int stopTimeoutVal, TimeUnit stopTimeoutUnit) {
+    stop();
+  }
+
+  @Override
+  public boolean isTerminated() {
+    return terminate || (schedulerThread != null && !schedulerThread.isAlive());
   }
 
   /**

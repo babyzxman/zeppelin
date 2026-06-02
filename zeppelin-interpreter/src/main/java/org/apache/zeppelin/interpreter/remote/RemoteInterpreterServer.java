@@ -516,17 +516,18 @@ public class RemoteInterpreterServer extends Thread
             }
             // only remove the open and matched interpreter
             if ((inp.getClassName().equals(className) && isOpen) || zConf.getBoolean(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_ENABLE_SCOPED_MODE)) {
+              String name = inp.getScheduler().getName();
               try {
-                LOGGER.debug("Trying to close interpreter {} with scheduler thread{}", inp.getClassName(), inp.getScheduler().getName());
+                LOGGER.debug("Trying to close interpreter {} with scheduler thread{}", inp.getClassName(), name);
                 inp.close();
+              } catch (InterpreterException e) {
+                LOGGER.warn("Fail to close interpreter", e);
+              } finally {
                 // close the thread
-                String name = inp.getScheduler().getName();
                 inp.getScheduler().stop();
                 if (zConf.getBoolean(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_ENABLE_SCOPED_MODE)) {
                   SchedulerFactory.singleton().removeScheduler(name);
                 }
-              } catch (InterpreterException e) {
-                LOGGER.warn("Fail to close interpreter", e);
               }
               it.remove();
               if (!zConf.getBoolean(ZeppelinConfiguration.ConfVars.ZEPPELIN_INTERPRETER_ENABLE_SCOPED_MODE)) {
