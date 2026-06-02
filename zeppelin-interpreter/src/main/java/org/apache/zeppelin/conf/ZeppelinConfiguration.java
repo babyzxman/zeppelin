@@ -1157,7 +1157,7 @@ public class ZeppelinConfiguration {
     ZEPPELIN_INTERPRETER_YARN_MONITOR_INTERVAL_SECS(
             "zeppelin.interpreter.yarn.monitor.interval_secs", 10),
 
-    ZEPPELIN_INTERPRETER_SCHEDULER_POOL_SIZE("zeppelin.scheduler.threadpool.size", 100),
+    ZEPPELIN_INTERPRETER_SCHEDULER_POOL_SIZE("zeppelin.scheduler.threadpool.size", 1000),
 
     ZEPPELIN_INTERPRETER_SCHEDULER_ENABLE_TIMEOUT("zeppelin.scheduler.enable.timeout", true),
 

@@ -183,16 +183,19 @@ public class RemoteScheduler extends AbstractScheduler {
     public void run() {
       JobStatusPoller jobStatusPoller = new JobStatusPoller(job, this, 100);
       jobStatusPoller.start();
-      scheduler.runJob(job);
-      jobExecuted = true;
-      jobSubmittedRemotely = true;
-      jobStatusPoller.shutdown();
       try {
-        jobStatusPoller.join();
-      } catch (InterruptedException e) {
-        logger.error("JobStatusPoller interrupted", e);
-        // Restore interrupted state...
-        Thread.currentThread().interrupt();
+        scheduler.runJob(job);
+      } finally {
+        jobExecuted = true;
+        jobSubmittedRemotely = true;
+        jobStatusPoller.shutdown();
+        try {
+          jobStatusPoller.join();
+        } catch (InterruptedException e) {
+          logger.error("JobStatusPoller interrupted", e);
+          // Restore interrupted state...
+          Thread.currentThread().interrupt();
+        }
       }
     }
 
@@ -212,6 +215,9 @@ public class RemoteScheduler extends AbstractScheduler {
                 || after == Status.ERROR) {
           // it can be status of last run.
           // so not updating the remoteStatus
+          // But it also can be the status of current run if it is finished very quickly.
+          // In this case we should set jobSubmittedRemotely to true to avoid infinite loop.
+          jobSubmittedRemotely = true;
           return;
         } else if (after == Status.RUNNING) {
           jobSubmittedRemotely = true;

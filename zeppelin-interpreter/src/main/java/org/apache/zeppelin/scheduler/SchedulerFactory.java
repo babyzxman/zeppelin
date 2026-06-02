@@ -82,8 +82,13 @@ public class SchedulerFactory {
       if (!schedulers.containsKey(name)) {
         LOGGER.info("Create FIFOScheduler: {}", name);
         FIFOScheduler s = new FIFOScheduler(name);
-        schedulers.put(name, s);
-        executor.execute(s);
+        try {
+          executor.execute(s);
+          schedulers.put(name, s);
+        } catch (Exception e) {
+          LOGGER.error("Fail to create FIFOScheduler", e);
+          throw new RuntimeException("Fail to create FIFOScheduler", e);
+        }
       }
       return schedulers.get(name);
     }
@@ -94,8 +99,13 @@ public class SchedulerFactory {
       if (!schedulers.containsKey(name)) {
         LOGGER.info("Create ParallelScheduler: {} with maxConcurrency: {}", name, maxConcurrency);
         ParallelScheduler s = new ParallelScheduler(name, maxConcurrency);
-        schedulers.put(name, s);
-        executor.execute(s);
+        try {
+          executor.execute(s);
+          schedulers.put(name, s);
+        } catch (Exception e) {
+          LOGGER.error("Fail to create ParallelScheduler", e);
+          throw new RuntimeException("Fail to create ParallelScheduler", e);
+        }
       }
       return schedulers.get(name);
     }
@@ -106,8 +116,13 @@ public class SchedulerFactory {
     LOGGER.debug("Total Scheduler size: " + schedulers.size());
     synchronized (schedulers) {
       if (!schedulers.containsKey(scheduler.getName())) {
-        schedulers.put(scheduler.getName(), scheduler);
-        executor.execute(scheduler);
+        try {
+          executor.execute(scheduler);
+          schedulers.put(scheduler.getName(), scheduler);
+        } catch (Exception e) {
+          LOGGER.error("Fail to create Scheduler", e);
+          throw new RuntimeException("Fail to create Scheduler", e);
+        }
       }
       return schedulers.get(scheduler.getName());
     }
