@@ -94,7 +94,11 @@ public abstract class AbstractScheduler implements Scheduler {
         break;
       }
 
-      runJobInScheduler(runningJob);
+      try {
+        runJobInScheduler(runningJob);
+      } catch (Exception e) {
+        LOGGER.error("Unexpected error in scheduler loop", e);
+      }
     }
     stop();
   }
